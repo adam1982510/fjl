@@ -50,7 +50,10 @@ int g_resolution_h = 512;
 double g_alpha = 0.3;
 double g_beta = 1 - g_alpha; 
 int g_threshval = g_alpha * g_resolution_w;
-string g_heatfilename = "d:/frame_br.jpg";
+string g_orginfilename;
+string g_heatMapfilename;
+string g_heatMapBackfilename;
+string g_heatMapDatafilename;
 
 static void on_AlphaTrackBar(int thd, void*)
 {
@@ -65,13 +68,20 @@ int main()
 	//VideoCapture cap("rtsp://admin:heyubin1215@172.21.77.98//Streaming/Channels/102");
 	//VideoCapture cap("d:/vtest.avi");
 	//VideoCapture cap("rtsp://admin:heyubin1215@172.21.77.98//Streaming/Channels/102");
-	VideoCapture cap("d:/Camera2_20170613_142553");
+	//VideoCapture cap("d:/Camera2_20170613_142553");
 	//VideoCapture cap("d:/Camera2_20170614_161550");
 	//VideoCapture cap("d:/Camera2_20170621_144101");
-	g_heatfilename = "d:/Camera2_20170613_142553.jpg";
-
+	string filename = "Camera2_20170621_144101";
+	string path = "d:/" + filename;
+	VideoCapture cap(path);
 	if (cap.isOpened() == false)
 		return 0;
+
+	g_orginfilename = path + ".jpg";
+	g_heatMapfilename = path + "-mg.jpg";
+	g_heatMapBackfilename = path + "-bg.jpg";
+	g_heatMapDatafilename = path + "-data.txt";
+	
 
 	//定义变量  
 	int i;
@@ -104,12 +114,13 @@ int main()
 		resize(frame1, frame, Size(g_resolution_w, g_resolution_h), 0, 0, CV_INTER_LINEAR);
 		mog->apply(frame, foreground, 0.01);
 	}
+	imwrite(g_orginfilename, frame);
 	//frame.copyTo(frame_br);
 	//frame_br = Scalar::all(255);
 	frame.copyTo(heatmap);
 	frame.copyTo(frame_black);
 	frame_br.copyTo(im_color);
-	im_color = Scalar::all(255);
+	//im_color = Scalar::all(255);
 
 	//trackerbar define
 	//热度图透明度
@@ -432,15 +443,27 @@ int main()
 					time_t now = time(0);
 					strftime(snow, 50, "%H:%M:%S", localtime(&now));
 					printf("hisValidFlowPoints vsize=%d hsize=%d flowCnt=%d time=%s\n", hisValidFlowPoints.size(), tempFlowPoints.size(), flowCnt, snow);
+
+					ofstream  fileheatmap(g_heatMapDatafilename, ofstream::app);
+					if (fileheatmap.is_open())
+					{
+						char tdata[50] = {0};
+						tdata[49] = '\n';
+						sprintf(tdata, "%d %d %s", pt1.pt.x, pt1.pt.y, snow);
+						fileheatmap.write(tdata, sizeof(tdata));
+						fileheatmap.close();
+					}
 				}
-				frame_br.convertTo(frame_br, CV_8U, 10);
+				//frame_br.convertTo(frame_br, CV_8U, 10);
 				distanceTransform(frame_br, im_color, CV_DIST_L2, 5);
-				im_color.convertTo(im_color, CV_8U, 10);
+				im_color.convertTo(im_color, CV_8U, 30);
 				applyColorMap(im_color, im_color, COLORMAP_RAINBOW);
+				addWeighted(im_color, g_alpha, frame, g_beta, 0, heatmap);
+				imwrite(g_heatMapfilename, heatmap);
+				imwrite(g_heatMapBackfilename, im_color);
+				
 			}
 
-			addWeighted(im_color, g_alpha, frame,  g_beta, 0, heatmap);
-			imwrite(g_heatfilename, heatmap);
 		}
 		imshow("跟踪效果", result);
 		moveWindow("跟踪效果", 0, 0);
